@@ -1,0 +1,894 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Recruitment Arena — Patch</title>
+<style>
+:root{
+  --panel: rgba(18,18,20,0.66);
+  --glass: rgba(255,255,255,0.04);
+  --accent: #6ec6ff;
+  --muted: #cfcfcf;
+}
+html,body{height:100%;margin:0;background:linear-gradient(#0b0b0d,#111);font-family:Inter,Arial,sans-serif;color:#fff;overflow:hidden}
+#root{width:100%;height:100%;display:flex;align-items:center;justify-content:center;position:relative}
+canvas#display{background:#111;border-radius:6px;box-shadow:0 8px 30px rgba(0,0,0,0.6);image-rendering:optimizeQuality}
+.center-menu{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:1200}
+.menu-card{width:520px;padding:18px;border-radius:12px;background:linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));border:1px solid rgba(255,255,255,0.06)}
+.small{font-size:13px;color:var(--muted)}
+.ui-panel{position:absolute;left:14px;bottom:14px;display:flex;gap:8px;z-index:1100;pointer-events:auto;flex-wrap:wrap}
+.btn{padding:8px 10px;border-radius:9px;background:var(--glass);border:1px solid rgba(255,255,255,0.05);cursor:pointer;color:#fff;font-weight:700;font-size:13px;user-select:none}
+.btn.small{padding:6px 8px;font-size:12px;border-radius:8px}
+.hud{position:absolute;left:50%;transform:translateX(-50%);top:10px;font-size:13px;z-index:1100;pointer-events:none}
+.settings-btn{position:absolute;right:12px;top:12px;z-index:1250}
+#backToMenuTop{position:absolute;right:84px;top:12px;z-index:1250;display:none}
+.settings-panel{
+  position:fixed;
+  right:12px;
+  top:56px;
+  width:360px;
+  max-width:92vw;
+  max-height:80vh;
+  padding:12px;
+  background:var(--panel);
+  border-radius:10px;
+  overflow:auto;
+  display:none;
+  z-index:1250;
+  box-shadow:0 8px 30px rgba(0,0,0,0.6);
+  box-sizing:border-box;
+}
+.settings-panel h3{margin:6px 0;color:var(--accent)}
+.settings-panel .row{display:flex;flex-direction:column;gap:6px;margin:8px 0}
+.settings-panel label{font-size:13px;color:var(--muted);display:block}
+.settings-panel input[type="range"], .settings-panel select, .settings-panel input[type="checkbox"]{width:100%}
+.minimap{position:absolute;right:12px;bottom:12px;width:140px;height:140px;border-radius:10px;background:rgba(0,0,0,0.25);border:1px solid rgba(255,255,255,0.04);z-index:1100;touch-action:none}
+.popup{position:absolute;left:50%;transform:translateX(-50%);bottom:88px;background:rgba(0,0,0,0.6);padding:8px;border-radius:8px;z-index:1150;display:none}
+#joystick{position:absolute;left:16px;bottom:110px;width:92px;height:92px;border-radius:50%;background:rgba(255,255,255,0.06);display:flex;align-items:center;justify-content:center;z-index:1100;touch-action:none}
+#joystickKnob{width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,0.16);transform:translate(0,0);transition:0.06s}
+.controls-bottom{position:absolute;right:14px;bottom:110px;display:flex;flex-direction:column;gap:8px;z-index:1100}
+.cooldown{opacity:0.9;font-size:12px}
+.footer{position:absolute;left:12px;bottom:12px;font-size:11px;color:var(--muted);z-index:1100}
+.joystick-panel{position:fixed;right:12px;top:56px;width:320px;max-width:92vw;max-height:80vh;padding:12px;background:var(--panel);border-radius:10px;overflow:auto;display:none;z-index:1251;box-sizing:border-box}
+@media(max-width:760px){ .menu-card{width:92vw} #joystick{left:10px;bottom:86px} .ui-panel{left:8px;bottom:8px} .minimap{right:8px;bottom:8px} .settings-panel{right:8px;top:64px} .joystick-panel{right:8px;top:64px} }
+</style>
+</head>
+<body>
+<div id="root">
+  <canvas id="display" width="1000" height="640"></canvas>
+
+  <div class="center-menu" id="menuScreen">
+    <div class="menu-card">
+      <div style="font-size:20px;color:var(--accent)">Recruitment Arena</div>
+      <div class="small" style="margin-top:6px">Modes: Normal (timed spawns), Sandbox (manual), Endless (waves & persistent).</div>
+
+      <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn small" id="modeNormal">Normal</button>
+        <button class="btn small" id="modeSandbox">Sandbox</button>
+        <button class="btn small" id="modeEndless">Endless</button>
+        <button class="btn small" id="continueSave">Continue Saved</button>
+      </div>
+
+      <div style="margin-top:12px;display:flex;gap:8px">
+        <button class="btn" id="startBtn">Start</button>
+        <button class="btn small" id="openSettings">Settings</button>
+      </div>
+
+      <div class="small" style="margin-top:10px">Map limit: 2000×2000. Neutral cap: 100. Enemy cap: 40. Logs toggle in Settings.</div>
+    </div>
+  </div>
+
+  <div id="joystick"><div id="joystickKnob"></div></div>
+
+  <div class="ui-panel" id="sandboxControls" style="display:none">
+    <button class="btn small" id="spawnNeutralBtn">Spawn Neutral</button>
+    <button class="btn small" id="spawnEnemyBtn">Spawn Enemy</button>
+    <button class="btn small" id="spawnWizardBtn">Spawn Neutral Wizard</button>
+    <button class="btn small" id="spawnGiantBtn">Spawn Neutral Giant</button>
+    <button class="btn small" id="spawnPlayerBtn">Spawn/Remove Player</button>
+    <button class="btn small" id="destroyEnemiesBtn">Destroy Enemies</button>
+    <button class="btn small" id="backToMenuBtn">Main Menu</button>
+  </div>
+
+  <div class="controls-bottom" id="abilities" style="display:none">
+    <button class="btn small" id="dashBtn">Dash <span class="cooldown" id="dashCd">(ready)</span></button>
+    <button class="btn small" id="spreadBtn">Spread <span class="cooldown" id="spreadCd">(ready)</span></button>
+    <button class="btn small" id="clumpBtn">Clump <span class="cooldown" id="clumpCd">(ready)</span></button>
+  </div>
+
+  <button class="btn small settings-btn" id="settingsToggle" style="display:none">⚙</button>
+  <button class="btn small" id="backToMenuTop" style="display:none">Menu</button>
+
+  <div class="settings-panel" id="settingsPanel" role="dialog" aria-modal="true">
+    <h3>Settings</h3>
+    <div class="row"><label>Map Size</label><input id="mapSlider" type="range" min="1000" max="3000" step="100" value="2000"></div>
+    <div class="row"><label>Render Radius</label><input id="radiusSlider" type="range" min="300" max="900" step="50" value="500"></div>
+    <div class="row"><label>Sandbox Rate</label><input id="sandboxRate" type="range" min="0" max="3" step="0.1" value="0.6"></div>
+    <div class="row"><label><input id="minimapToggle" type="checkbox" checked> Show Minimap</label></div>
+    <div class="row"><label><input id="logsToggle" type="checkbox"> Show Logs</label></div>
+    <div class="row"><label><input id="roleToggle" type="checkbox" checked> Show Role Indicators</label></div>
+    <div class="row"><label>Joystick Settings<button class="btn small" id="openJoystickSettings" style="margin-left:8px">Open</button></label></div>
+    <div class="row"><label><input id="minimapDraggable" type="checkbox" checked> Minimap draggable</label></div>
+    <div class="row"><label><input id="hideSandboxUI" type="checkbox" checked> Hide joystick & abilities in sandbox</label></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px">
+      <button class="btn small" id="saveSettings">Save</button>
+      <button class="btn small" id="closeSettings">Close</button>
+    </div>
+  </div>
+
+  <div class="joystick-panel" id="joystickPanel" aria-hidden="true">
+    <h3>Joystick Settings</h3>
+    <div class="row"><label>Mode</label>
+      <select id="joystickMode">
+        <option value="free">Free</option>
+        <option value="8dir">8-direction</option>
+        <option value="4dir">4-direction</option>
+      </select>
+    </div>
+    <div class="row"><label><input id="joystickVisibleInSandbox" type="checkbox" checked> Show joystick & abilities in sandbox</label></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px">
+      <button class="btn small" id="backFromJoystick">Back</button>
+    </div>
+  </div>
+
+  <div class="minimap" id="minimap"></div>
+  <div class="hud" id="hud">Mode: — | Wave: 0 | Timer: 0:00 | Kills: 0 | Troops: 0 | Units: 0</div>
+  <div class="popup" id="popup"></div>
+  <div class="footer">Responsive landscape/portrait support. GIF/sprite-ready.</div>
+</div>
+
+<script>
+/* =========================
+   Display & helpers
+   ========================= */
+const DISPLAY = document.getElementById('display'), DISPLAY_CTX = DISPLAY.getContext('2d');
+const LOGW = 1000, LOGH = 640;
+const buf = document.createElement('canvas'); buf.width = LOGW; buf.height = LOGH; const ctx = buf.getContext('2d');
+function fitDisplay(){ const cw=window.innerWidth,ch=window.innerHeight,scale=Math.min(cw/LOGW,ch/LOGH),dw=Math.round(LOGW*scale),dh=Math.round(LOGH*scale); DISPLAY.style.width=dw+'px'; DISPLAY.style.height=dh+'px'; DISPLAY.style.marginLeft=Math.round((cw-dw)/2)+'px'; DISPLAY.style.marginTop=Math.round((ch-dh)/2)+'px'; }
+window.addEventListener('resize', fitDisplay); fitDisplay();
+const rand=(a,b)=>a+Math.random()*(b-a), clamp=(v,a,b)=>Math.max(a,Math.min(b,v)), dist=(a,b)=>Math.hypot(a.x-b.x, a.y-b.y);
+const popup=(m,tm=1400)=>{ const p=document.getElementById('popup'); p.innerText=m; p.style.display='block'; setTimeout(()=>p.style.display='none',tm); };
+
+/* =========================
+   World & config
+   ========================= */
+let world={w:2000,h:2000}, renderRadius=500, neutralCap=100, enemyCap=40;
+let enemyTeams=[{id:2,color:'#ff5b5b'},{id:4,color:'#ffb86b'},{id:5,color:'#9b7cff'}];
+let mode=null, player=null, units=[], particles=[], floats=[], projectiles=[];
+let timeNow=0,lastFrame=performance.now(),dtGlobal=0;
+const SAVE_KEY='ra_save_v4';
+const hudEl=document.getElementById('hud');
+let showMinimap=true, showLogs=false, showRoleIndicators=true;
+let joystickMode='free', minimapDraggable=true, hideSandboxUI=true;
+
+/* joystick */
+const joyEl=document.getElementById('joystick'), knob=document.getElementById('joystickKnob');
+let joy={x:0,y:0,pressed:false,activeId:null};
+joyEl.addEventListener('pointerdown', e=>{ joyEl.setPointerCapture && joyEl.setPointerCapture(e.pointerId); joy.pressed=true; joy.activeId=e.pointerId; });
+joyEl.addEventListener('pointermove', e=>{ if(!joy.pressed||e.pointerId!==joy.activeId) return; const r=joyEl.getBoundingClientRect(); let nx=(e.clientX-(r.left+r.width/2))/40, ny=(e.clientY-(r.top+r.height/2))/40; nx=clamp(nx,-1,1); ny=clamp(ny,-1,1); joy.x=nx; joy.y=ny; knob.style.transform=`translate(${joy.x*38}px,${joy.y*38}px)`; });
+window.addEventListener('pointerup', e=>{ if(e.pointerId===joy.activeId){ joy.pressed=false; joy.activeId=null; joy.x=0; joy.y=0; knob.style.transform='translate(0,0)'; }});
+window.addEventListener('pointercancel', ()=>{ joy.pressed=false; joy.activeId=null; joy.x=0; joy.y=0; knob.style.transform='translate(0,0)'; });
+
+/* keyboard */
+const keys={}; window.addEventListener('keydown', e=> keys[e.key.toLowerCase()] = true); window.addEventListener('keyup', e=> keys[e.key.toLowerCase()] = false);
+
+/* minimap */
+const miniWrap=document.getElementById('minimap'); const mini=document.createElement('canvas'); mini.width=140; mini.height=140; miniWrap.appendChild(mini); const miniCtx=mini.getContext('2d');
+miniWrap.style.touchAction='none';
+
+/* attack tuning */
+const ATTACK_RANGE_SCALE = 0.6;
+
+/* =========================
+   Entities
+   ========================= */
+let UID = 1;
+class Particle{ constructor(x,y,c,s,l){ this.x=x;this.y=y;this.c=c;this.s=s;this.l=l;this.age=0;this.vx=(Math.random()-0.5)*0.9;this.vy=(Math.random()-0.5)*0.9;} update(dt){ this.x+=this.vx;this.y+=this.vy;this.age+=dt;} draw(ctx){ ctx.globalAlpha=1-Math.min(this.age/this.l,1); ctx.fillStyle=this.c; ctx.beginPath(); ctx.arc(this.x,this.y,this.s,0,Math.PI*2); ctx.fill(); ctx.globalAlpha=1;} }
+class FloatText{ constructor(x,y,t,c){ this.x=x;this.y=y;this.t=t;this.c=c||'#fff';this.age=0;this.life=0.9;} update(dt){ this.y -= 24*dt; this.age+=dt;} draw(ctx){ ctx.globalAlpha = 1 - Math.min(this.age/this.life,1); ctx.fillStyle=this.c; ctx.font='14px Arial'; ctx.fillText(this.t,this.x,this.y); ctx.globalAlpha=1; } }
+
+class Unit {
+  constructor(x,y,opts={}){
+    this.id = UID++;
+    this.pos = {x,y};
+    this.team = opts.team ?? 3;
+    this.color = opts.color ?? (this.team===1? '#4ea8ff' : (this.team===3? '#9a9a9a' : '#ff5b5b'));
+    this.role = opts.role || 'swordsman';
+    this.isLeader = !!opts.leader;
+    this.isAI = this.team !== 1;
+    this.size = this.isLeader ? 22 : 14;
+    this.setRoleStats();
+    if(this.isLeader && this.role === 'swordsman'){
+      this.maxHp *= 2; this.baseDamage *= 1.8; this.recruitRange = 110;
+    } else {
+      this.recruitRange = opts.recruitRange ?? (this.isLeader ? 64 : 40);
+    }
+    this.hp = this.maxHp;
+    this.recruited = false;
+    this.followTarget = null;
+    this.followOffset = {x: rand(-28,28), y: rand(-28,28)};
+    this.vel = {x:0,y:0};
+    this.acc = (this.team===1)?0.36:0.25;
+    this.friction = 0.86;
+    this.state = 'wander';
+    this.stateTimer = rand(0.6,2.0);
+    this.scanCD = rand(0.12,0.35);
+    this.lastDamageTime = -99;
+    this.lastAttacker = null;
+    this.wanderTarget = null;
+    this.sleeping = false;
+    this.attackCooldown = 0;
+    this._pulsePhase = Math.random()*Math.PI*2;
+  }
+
+  setRoleStats(){
+    if(this.role === 'swordsman'){ this.maxHp=12; this.baseDamage=2; this.attackRange=28; this.cooldown=1.0; this.aoe=0; this.canMelee=true; this.roleLetter='S'; this.roleColor='#fff'; }
+    else if(this.role === 'wizard'){ this.maxHp=10; this.baseDamage=3; this.attackRange=220; this.cooldown=3.0; this.aoe=48; this.canMelee=false; this.roleLetter='W'; this.roleColor='#ffd97a'; }
+    else if(this.role === 'giant'){ this.maxHp=12*5; this.baseDamage=8; this.attackRange=120; this.cooldown=5.0; this.aoe=60; this.canMelee=false; this.roleLetter='G'; this.roleColor='#d9b3ff'; }
+    else if(this.role === 'boss'){ this.maxHp=200; this.baseDamage=18; this.attackRange=160; this.cooldown=2.0; this.aoe=60; this.canMelee=false; this.roleLetter='B'; this.roleColor='#ffd54d'; }
+    else { this.maxHp=12; this.baseDamage=2; this.attackRange=28; this.cooldown=1.0; this.aoe=0; this.canMelee=true; this.roleLetter=this.role.charAt(0).toUpperCase(); this.roleColor='#fff'; }
+  }
+
+  applyPhysics(dt){
+    this.vel.x *= this.friction; this.vel.y *= this.friction;
+    this.pos.x += this.vel.x * dt * 60; this.pos.y += this.vel.y * dt * 60;
+    this.pos.x = clamp(this.pos.x, 0, world.w);
+    this.pos.y = clamp(this.pos.y, 0, world.h);
+  }
+
+  scan(units){
+    this.scanCD -= dtGlobal;
+    if(this.scanCD > 0) return null;
+    this.scanCD = rand(0.12,0.35);
+    const radius = (this.role === 'wizard') ? 300 : 220;
+    const list = units.filter(u=>u!==this && u.team!==this.team && u.team!==3 && Math.hypot(u.pos.x-this.pos.x,u.pos.y-this.pos.y) < radius);
+    if(!list.length) return null;
+    list.sort((a,b)=>Math.hypot(a.pos.x-this.pos.x,a.pos.y-this.pos.y)-Math.hypot(b.pos.x-this.pos.x,b.pos.y-this.pos.y));
+    return list[0];
+  }
+
+  takeDamage(amount, attacker){
+    this.hp -= amount; if(this.hp < 0) this.hp = 0;
+    this.lastDamageTime = timeNow; this.lastAttacker = attacker ? attacker.id : this.lastAttacker;
+  }
+
+  update(dt, units){
+    if(this.sleeping && !(this.recruited && this.followTarget)) return;
+    this.attackCooldown = Math.max(0, this.attackCooldown - dt);
+    if(this.isLeader && timeNow - this.lastDamageTime > 3) this.hp = Math.min(this.maxHp, this.hp + 3*dt);
+
+    if(this.recruited && this.followTarget){
+      const leader = this.followTarget;
+      const lv = Math.hypot(leader.vel.x, leader.vel.y);
+      if(lv > 0.4){
+        // match leader movement and maintain offset
+        this.pos.x += leader.vel.x * dt * 60;
+        this.pos.y += leader.vel.y * dt * 60;
+        const target = {x: leader.pos.x + this.followOffset.x, y: leader.pos.y + this.followOffset.y};
+        const d = dist(this.pos, target);
+        if(d > 8) this.moveTowards(target, 1.0);
+      } else {
+        // idle circle around leader using followOffset as base
+        const angle = (timeNow*1.2) + (this.id % 32);
+        const radius = Math.max(18, this.size + Math.hypot(this.followOffset.x,this.followOffset.y)%32);
+        const target = {x: leader.pos.x + Math.cos(angle)*radius, y: leader.pos.y + Math.sin(angle)*radius};
+        const d = dist(this.pos, target);
+        if(d > 6) this.moveTowards(target, 0.9);
+      }
+      const nearbyEnemy = units.find(u => u.team!==this.team && u.team!==3 && dist(this.pos,u.pos) < Math.max(120, this.attackRange*ATTACK_RANGE_SCALE));
+      if(nearbyEnemy && this.attackCooldown <= 0){
+        this.performAttack(nearbyEnemy, units);
+        this.attackCooldown = this.cooldown;
+      }
+      this.vel.x += (Math.random()-0.5)*0.02; this.vel.y += (Math.random()-0.5)*0.02;
+      this.applyPhysics(dt);
+      return;
+    }
+
+    if(this.isAI){
+      if(this.stateTimer > 0) this.stateTimer -= dt;
+      this.chooseState(units);
+      const found = (this.team === 3) ? null : this.scan(units);
+      if(found){
+        const d = dist(this.pos, found.pos);
+        const alliesClose = units.filter(u=>u.team===this.team && dist(this.pos,u.pos) < 160).length;
+        const enemiesClose = units.filter(u=>u.team!==this.team && u.team!==3 && dist(this.pos,u.pos) < 160).length;
+        const hpRatio = this.hp/this.maxHp;
+        if(hpRatio > 0.5 && alliesClose+1 >= enemiesClose){ this.state='attack'; this.target = found; }
+        else { this.state='flee'; const dx=this.pos.x-found.pos.x, dy=this.pos.y-found.pos.y; const dmag=Math.hypot(dx,dy)||1; this.moveTarget={x:this.pos.x+(dx/dmag)*rand(120,260), y:this.pos.y+(dy/dmag)*rand(120,260)}; }
+      }
+
+      if(this.state === 'wander'){
+        if(!this.wanderTarget || dist(this.pos,this.wanderTarget) < 12) this.wanderTarget = {x:this.pos.x + rand(-120,120), y:this.pos.y + rand(-120,120)};
+        this.moveTowards(this.wanderTarget, 0.6);
+      } else if(this.state === 'attack' && this.target){
+        if(this.target.hp <= 0 || dist(this.pos,this.target.pos) > 420){ this.state='wander'; this.target=null; }
+        else {
+          const d = dist(this.pos,this.target.pos);
+          if(d > this.attackRange * ATTACK_RANGE_SCALE + this.size + 4) this.moveTowards(this.target.pos, 1.0);
+          else {
+            if(this.attackCooldown <= 0){
+              this.performAttack(this.target, units);
+              this.attackCooldown = this.cooldown;
+            }
+          }
+        }
+      } else if(this.state === 'flee'){
+        if(!this.moveTarget) this.moveTarget = {x:this.pos.x + rand(-220,220), y:this.pos.y + rand(-220,220)};
+        this.moveTowards(this.moveTarget, 1.2);
+      }
+
+      this.vel.x += (Math.random()-0.5)*0.01; this.vel.y += (Math.random()-0.5)*0.01;
+      const vmax = (this.team === 1) ? 3.8 : (this.isLeader?2.4:1.8);
+      const vmag = Math.hypot(this.vel.x,this.vel.y);
+      if(vmag > vmax){ this.vel.x = this.vel.x/vmag*vmax; this.vel.y = this.vel.y/vmag*vmax; }
+      this.applyPhysics(dt);
+    }
+  }
+
+  performAttack(target, units){
+    if(this.role === 'swordsman'){
+      const dmg = Math.round(this.baseDamage * rand(0.95,1.05));
+      target.takeDamage(dmg, this);
+      floats.push(new FloatText(target.pos.x, target.pos.y-6, `-${dmg}`, '#fff'));
+      for(let i=0;i<5;i++) particles.push(new Particle(target.pos.x+rand(-6,6), target.pos.y+rand(-6,6), 'red', 2, 0.35));
+    } else if(this.role === 'wizard'){
+      const dx = target.pos.x - this.pos.x, dy = target.pos.y - this.pos.y;
+      const ang = Math.atan2(dy,dx);
+      const speed = 420;
+      const vx = Math.cos(ang)*speed, vy = Math.sin(ang)*speed;
+      const dmg = Math.round(this.baseDamage * rand(0.9,1.15));
+      projectiles.push({ id:'fb'+(UID++), x:this.pos.x, y:this.pos.y, vx, vy, owner:this, dmg, aoe:this.aoe, life:2.4 });
+      for(let i=0;i<8;i++) particles.push(new Particle(this.pos.x + rand(-6,6), this.pos.y + rand(-6,6), '#ffb86b', 1.6, 0.45));
+    } else if(this.role === 'giant' || this.role === 'boss'){
+      const aoe = this.aoe;
+      const dmg = Math.round(this.baseDamage * rand(0.95,1.1));
+      units.forEach(u=>{
+        if(u.team !== this.team && u.team !== 3 && dist(u.pos, this.pos) <= aoe){
+          u.takeDamage(dmg, this);
+          const dx = u.pos.x - this.pos.x, dy = u.pos.y - this.pos.y; const m = Math.hypot(dx,dy)||1;
+          u.vel.x += (dx/m)*4; u.vel.y += (dy/m)*4;
+        }
+      });
+      for(let i=0;i<18;i++) particles.push(new Particle(this.pos.x + rand(-aoe/3,aoe/3), this.pos.y + rand(-aoe/3,aoe/3), '#ffd54d', 3, 0.9));
+      floats.push(new FloatText(this.pos.x, this.pos.y-6, `Slam ${dmg}`, '#ffd54d'));
+    }
+  }
+
+  chooseState(units){ const allies = units.filter(u=>u.team===this.team && dist(u.pos,this.pos) < 180).length; const enemiesNearby = units.filter(u=>u.team!==this.team && u.team!==3 && dist(u.pos,this.pos) < 180).length; const lowHp = this.hp < this.maxHp*0.35; if(lowHp || enemiesNearby > allies + 1){ this.state='flee'; this.stateTimer = rand(0.8,1.8); return; } if(this.stateTimer <= 0){ this.state='wander'; this.stateTimer = rand(0.8,2.6); } }
+
+  moveTowards(target, speedFactor=1){ const dx = target.x - this.pos.x, dy = target.y - this.pos.y; const d = Math.hypot(dx,dy)||1; this.vel.x += (dx/d) * this.acc * speedFactor; this.vel.y += (dy/d) * this.acc * speedFactor; }
+
+  draw(ctx){
+    if(this.sleeping) return;
+    ctx.save();
+    if(this.isLeader) { ctx.shadowColor = this.color; ctx.shadowBlur = 12; } else ctx.shadowBlur = 0;
+    ctx.fillStyle = this.color; ctx.beginPath(); ctx.arc(this.pos.x, this.pos.y, this.size, 0, Math.PI*2); ctx.fill();
+
+    if(showRoleIndicators){
+      const pulse = 0.5 + 0.5 * Math.sin((timeNow + this._pulsePhase) * (2 * Math.PI / 1.6));
+      ctx.globalAlpha = 0.85 * (0.6 + 0.4 * pulse);
+      const letterColor = pickContrastColor(this.color, this.roleColor);
+      ctx.fillStyle = letterColor;
+      ctx.font = (this.isLeader ? 'bold 14px Arial' : 'bold 12px Arial');
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(this.roleLetter || this.role.charAt(0).toUpperCase(), this.pos.x, this.pos.y);
+      ctx.globalAlpha = 1;
+    }
+
+    if(this.isLeader){
+      ctx.fillStyle = '#111'; ctx.font = 'bold 12px Arial';
+      ctx.fillText('L', this.pos.x + this.size - 6, this.pos.y - this.size - 10);
+    }
+
+    if(this.isLeader){ ctx.shadowBlur = 0; ctx.fillStyle='black'; ctx.font='14px Arial'; ctx.fillText(this.role==='boss'?'♕':(this.role==='wizard'?'✦':(this.role==='giant'?'⬣':'⚔')), this.pos.x-8, this.pos.y-26); }
+
+    ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(255,255,255,0.06)'; ctx.beginPath(); ctx.arc(this.pos.x, this.pos.y, this.size + 6,0,Math.PI*2); ctx.stroke();
+    ctx.fillStyle='rgba(0,0,0,0.5)'; ctx.fillRect(this.pos.x - this.size, this.pos.y - this.size - 8, this.size*2, 5);
+    ctx.fillStyle='red'; ctx.fillRect(this.pos.x - this.size, this.pos.y - this.size - 8, this.size*2, 5);
+    ctx.fillStyle='lime'; ctx.fillRect(this.pos.x - this.size, this.pos.y - this.size - 8, this.size*2 * (this.hp/this.maxHp), 5);
+
+    if(this.attackCooldown > 0 && this.cooldown > 0){
+      const pct = clamp((this.cooldown - this.attackCooldown)/this.cooldown,0,1);
+      const r = this.size + 8;
+      ctx.beginPath(); ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(255,255,255,0.22)';
+      ctx.arc(this.pos.x, this.pos.y - this.size - 12, r, -Math.PI/2, -Math.PI/2 + pct * Math.PI * 2); ctx.stroke();
+    }
+
+    ctx.restore();
+  }
+}
+
+function pickContrastColor(bodyColor, preferred){
+  try{ const c = bodyColor.replace('#',''); const r=parseInt(c.substring(0,2),16), g=parseInt(c.substring(2,4),16), b=parseInt(c.substring(4,6),16); const lum = 0.2126*r + 0.7152*g + 0.0722*b; return (lum < 130) ? (preferred || '#ffffff') : '#111111'; }catch(e){ return preferred || '#fff'; }
+}
+
+/* =========================
+   Spawning & pools
+   ========================= */
+function canSpawnNeutral(){ return units.filter(u=>u.team===3).length < neutralCap; }
+function canSpawnEnemy(){ return units.filter(u=>[2,4,5].includes(u.team)).length < enemyCap; }
+
+function spawnNeutralCluster(cx,cy,size=6,spread=24){
+  for(let i=0;i<size;i++){ if(!canSpawnNeutral()) break; const ang = rand(0,Math.PI*2), r = rand(6,spread); const x = clamp(cx + Math.cos(ang)*r, 40, world.w-40), y = clamp(cy + Math.sin(ang)*r, 40, world.h-40); const role = Math.random() < 0.9 ? 'swordsman' : (Math.random() < 0.7 ? 'wizard' : 'giant'); units.push(new Unit(x,y,{team:3, color:'#9a9a9a', role: role})); }
+  spawnEffect(cx,cy);
+}
+function spawnNeutralRoleAt(x,y,role='wizard'){ if(!canSpawnNeutral()) return; const u = new Unit(x,y,{team:3,color:'#9a9a9a',role,leader:false}); units.push(u); spawnEffect(x,y); return u; }
+function spawnEnemyAt(x,y,teamId,role='swordsman',leader=false){ if(leader && units.some(u=>u.team===teamId && u.isLeader)) leader=false; const color = (enemyTeams.find(t=>t.id===teamId)||{color:'#ff5b5b'}).color; const u = new Unit(x,y,{team:teamId,color,role,leader,isAI:true}); units.push(u); return u; }
+
+function ensureEnemyLeader(teamId){
+  if(!units.some(u=>u.team===teamId && u.isLeader)){
+    for(let i=0;i<60;i++){
+      const x=rand(120,world.w-120), y=rand(120,world.h-120);
+      if(!units.some(u=>u.team===teamId && dist({x,y},u.pos) < 220)){
+        const leader = spawnEnemyAt(x,y,teamId,'swordsman', true);
+        leader.hp = leader.maxHp;
+        spawnEffect(x,y);
+        for(let j=0;j<Math.floor(rand(2,5));j++){
+          const fx=clamp(x+rand(-40,40),40,world.w-40), fy=clamp(y+rand(-40,40),40,world.h-40);
+          const follower = spawnEnemyAt(fx,fy,teamId,'swordsman', false); follower.followTarget = leader; follower.recruited = true;
+        }
+        break;
+      }
+    }
+  }
+}
+
+function placeEnemyTeamFar(teamId, attempts=30){
+  for(let i=0;i<attempts;i++){
+    const x=rand(80,world.w-80), y=rand(80,world.h-80);
+    const minDist=400;
+    const nearOther=units.some(u=>u.team!==teamId && u.team!==1 && u.team!==3 && dist({x,y}, u.pos) < minDist);
+    if(nearOther) continue;
+    if(canSpawnEnemy()){
+      const leaderChance = Math.random() < 0.28;
+      const leader = leaderChance && !units.some(u=>u.team===teamId && u.isLeader);
+      const roleRoll = Math.random();
+      const role = roleRoll < 0.78 ? 'swordsman' : (roleRoll < 0.95 ? 'wizard' : 'giant');
+      const leaderUnit = spawnEnemyAt(x,y,teamId,role,leader);
+      spawnEffect(x,y);
+      if(leader){
+        for(let j=0;j<Math.floor(rand(2,5));j++){
+          const fx=clamp(x+rand(-40,40),40,world.w-40), fy=clamp(y+rand(-40,40),40,world.h-40);
+          const follower = spawnEnemyAt(fx,fy,teamId,'swordsman', false); follower.followTarget = leaderUnit; follower.recruited = true;
+        }
+      } else {
+        for(let j=0;j<Math.floor(rand(0,2));j++){
+          const fx=clamp(x+rand(-40,40),40,world.w-40), fy=clamp(y+rand(-40,40),40,world.h-40);
+          spawnEnemyAt(fx,fy,teamId,'swordsman', false);
+        }
+      }
+      return true;
+    }
+  }
+  return false;
+}
+
+function spawnEffect(x,y){ for(let i=0;i<12;i++) particles.push(new Particle(x + rand(-8,8), y + rand(-8,8), '#9ae6ff', 2, 0.65)); }
+
+/* =========================
+   Clumps, Recruitment fixes (preserve role)
+   ========================= */
+function handleRecruitment(){
+  for(let i=0;i<units.length;i++){
+    const u = units[i];
+    if(u.team === 3) continue;
+    for(let j=0;j<units.length;j++){
+      const n = units[j];
+      if(n.team !== 3) continue;
+      const d = dist(u.pos, n.pos);
+      const range = (u.recruitRange !== undefined) ? u.recruitRange : (u.isLeader?64:40);
+      if(d <= range + u.size && !n.recruited){
+        n.team = u.team; n.color = u.color; n.recruited = true; n.followTarget = u; n.pos.x += rand(-6,6); n.pos.y += rand(-6,6);
+        n.setRoleStats(); n.hp = n.maxHp;
+        for(let k=0;k<6;k++) particles.push(new Particle(n.pos.x, n.pos.y, 'yellow', 2, 0.5));
+        floats.push(new FloatText(n.pos.x, n.pos.y-6, 'Recruited', '#ffd54d'));
+        for(let r=0;r<12;r++) particles.push(new Particle(n.pos.x + rand(-4,4), n.pos.y + rand(-4,4), '#ffd54d', 1.4, 0.3));
+      }
+    }
+  }
+}
+
+/* =========================
+   Death & leader capture
+   ========================= */
+let killCount = 0;
+function findUnitById(id){ return units.find(u=>u.id === id) || null; }
+
+function onUnitDeath(deadUnit){
+  if(deadUnit.team !== 3) killCount++;
+  if(deadUnit.isLeader){
+    const killer = findUnitById(deadUnit.lastAttacker);
+    if(killer){
+      units.forEach(u=>{
+        if(u !== deadUnit && u.team === deadUnit.team){
+          u.team = killer.team; u.color = killer.color; u.recruited = true; u.followTarget = killer; u.hp = u.maxHp;
+          for(let p=0;p<10;p++) particles.push(new Particle(u.pos.x + rand(-6,6), u.pos.y + rand(-6,6), '#ffd54d', 2, 0.8));
+          floats.push(new FloatText(u.pos.x, u.pos.y-6, 'Captured', '#ffd54d'));
+        }
+      });
+    } else {
+      units.forEach(u=>{ if(u !== deadUnit && u.team === deadUnit.team){ u.team = 3; u.color='#9a9a9a'; u.recruited=false; u.followTarget=null; }});
+    }
+    setTimeout(()=>{ ensureEnemyLeader(deadUnit.team); }, 2500 + Math.random()*2000);
+  }
+  units = units.filter(u=>u !== deadUnit);
+  savePersistent();
+}
+function checkDeaths(){ const copy = units.slice(); for(const u of copy) if(u.hp <= 0) onUnitDeath(u); }
+
+/* =========================
+   Player attack / respawn
+   ========================= */
+let pendingRespawn = null;
+function playerAutoAttack(dt){
+  if(!player) return;
+  player.attackCooldown = player.attackCooldown || 0;
+  player.attackCooldown = Math.max(0, player.attackCooldown - dt);
+  if(player.attackCooldown <= 0){
+    const target = units.find(u => u.team !== 1 && u.team !== 3 && dist(player.pos, u.pos) <= player.attackRange*ATTACK_RANGE_SCALE + player.size + 6);
+    if(target){
+      const dmg = Math.round(player.baseDamage * rand(0.95,1.05) + 1);
+      target.takeDamage(dmg, player);
+      floats.push(new FloatText(target.pos.x, target.pos.y-6, `-${dmg}`, '#fff'));
+      for(let i=0;i<5;i++) particles.push(new Particle(target.pos.x+rand(-4,4), target.pos.y+rand(-4,4), 'orange', 2, 0.35));
+      player.attackCooldown = player.cooldown || 1.0;
+    }
+  }
+  if(player.hp <= 0 && !pendingRespawn){
+    const deathPos = {x: player.pos.x, y: player.pos.y};
+    onUnitDeath(player); player = null;
+    pendingRespawn = {timeLeft:3.0, deathPos};
+    popup('You died. Respawn in 3s');
+    savePersistent();
+  }
+}
+function handleRespawn(dt){
+  if(!pendingRespawn) return;
+  pendingRespawn.timeLeft -= dt;
+  if(pendingRespawn.timeLeft <= 0){
+    const d = 200; const ang = rand(0,Math.PI*2), r = rand(20,d);
+    const x = clamp(pendingRespawn.deathPos.x + Math.cos(ang)*r, 40, world.w-40);
+    const y = clamp(pendingRespawn.deathPos.y + Math.sin(ang)*r, 40, world.h-40);
+    player = new Unit(x,y,{team:1, color:'#4ea8ff', leader:true, role:'swordsman'});
+    units.push(player); spawnEffect(x,y); pendingRespawn = null; popup('Respawned');
+  }
+}
+
+/* =========================
+   Spawners
+   ========================= */
+let sandboxAcc=0, normalAcc=0, normalTimer=0, endlessWaveTimer=0, waveNumber=0;
+function sandboxSpawner(dt){
+  if(mode !== 'sandbox') return;
+  sandboxAcc += dt * parseFloat(document.getElementById('sandboxRate').value || 0.6);
+  while(sandboxAcc >= 1){ sandboxAcc -= 1; if(canSpawnNeutral()) spawnNeutralCluster(rand(80,world.w-80), rand(80,world.h-80), Math.floor(rand(3,7)), 28); }
+}
+function normalSpawner(dt){
+  if(mode !== 'normal') return;
+  normalTimer += dt; normalAcc += dt * 0.25;
+  while(normalAcc >= 1){ normalAcc -= 1; if(canSpawnNeutral()) spawnNeutralCluster(rand(80,world.w-80), rand(80,world.h-80), Math.floor(rand(2,6)), 28); if(canSpawnEnemy() && Math.random() < 0.6) placeEnemyTeamFar(enemyTeams[Math.floor(Math.random()*enemyTeams.length)].id); }
+  if(normalTimer > 600 && Math.random() < 0.002) { if(canSpawnEnemy()) placeEnemyTeamFar(enemyTeams[Math.floor(Math.random()*enemyTeams.length)].id, 40); }
+  if(normalTimer > 1200 && Math.random() < 0.001) {
+    if(canSpawnEnemy()){
+      const team = enemyTeams[Math.floor(Math.random()*enemyTeams.length)].id;
+      for(let i=0;i<30;i++){
+        const x=rand(80,world.w-80), y=rand(80,world.h-80);
+        if(!units.some(u=>u.team===team && u.isLeader) && !units.some(u=>dist({x,y},u.pos)<350)){
+          const g = spawnEnemyAt(x,y,team,'giant', true); if(g){ g.hp = g.maxHp; spawnEffect(x,y); break; }
+        }
+      }
+    }
+  }
+}
+function endlessSpawner(dt){
+  if(mode !== 'endless') return;
+  endlessWaveTimer -= dt;
+  if(endlessWaveTimer <= 0){
+    waveNumber++;
+    const banditCount = Math.min(8 + waveNumber*1, 40);
+    for(let i=0;i<banditCount;i++){ const team = enemyTeams[Math.floor(Math.random()*enemyTeams.length)].id; placeEnemyTeamFar(team, 40); }
+    if(waveNumber % 10 === 0){
+      const team = enemyTeams[Math.floor(Math.random()*enemyTeams.length)].id;
+      for(let i=0;i<30;i++){
+        const x=rand(120, world.w-120), y=rand(120, world.h-120);
+        if(!units.some(u=>dist({x,y},u.pos)<400)){ let boss = spawnEnemyAt(x,y,team,'boss', true); boss.maxHp *= 1 + Math.floor(waveNumber/10)*0.6; boss.hp = boss.maxHp; spawnEffect(x,y); break; }
+      }
+    }
+    endlessWaveTimer = Math.max(6, 12 - Math.min(8, Math.floor(waveNumber/6)));
+    savePersistent(); popup('Wave ' + waveNumber);
+  }
+}
+
+/* =========================
+   Sleeping
+   ========================= */
+function updateSleepingState(){
+  const ref = player || {pos:{x:world.w/2,y:world.h/2}};
+  const r2 = renderRadius * renderRadius;
+  units.forEach(u=>{
+    if(u.recruited && u.followTarget){ u.sleeping = false; return; }
+    if(u.isLeader){ u.sleeping = false; return; }
+    if(!player && mode === 'sandbox'){ u.sleeping = false; return; }
+    const dx=u.pos.x-ref.pos.x, dy=u.pos.y-ref.pos.y, d2=dx*dx+dy*dy;
+    u.sleeping = d2 > r2;
+  });
+}
+
+/* =========================
+   Save/load
+   ========================= */
+function savePersistent(){
+  try{
+    const data = { units: units.map(u=>({id:u.id,x:u.pos.x,y:u.pos.y,team:u.team,color:u.color,role:u.role,isLeader:u.isLeader,hp:u.hp,recruited:u.recruited,followId:u.followTarget?u.followTarget.id:null})), world, timeNow, waveNumber, killCount, mode }; localStorage.setItem(SAVE_KEY, JSON.stringify(data)); if(showLogs) console.log('Saved'); }
+  catch(e){ console.warn('save failed', e); }
+}
+function loadPersistent(){
+  try{
+    const raw = localStorage.getItem(SAVE_KEY); if(!raw) return false; const data = JSON.parse(raw);
+    units = []; const map = {};
+    data.units.forEach(u=>{ const nu = new Unit(u.x,u.y,{team:u.team,color:u.color,role:u.role,leader:u.isLeader}); nu.id = u.id; nu.hp = Math.min(nu.maxHp,u.hp); nu.recruited = u.recruited; map[nu.id]=nu; units.push(nu); });
+    data.units.forEach(u=>{ if(u.followId){ const a = units.find(x=>x.id===u.id); const f = units.find(x=>x.id===u.followId); if(a && f) a.followTarget = f; }});
+    world = data.world || world; timeNow = data.timeNow || 0; waveNumber = data.waveNumber || 0; killCount = data.killCount || 0; mode = data.mode || null;
+    player = units.find(u=>u.team===1 && u.isLeader) || null; popup('Loaded'); return true;
+  }catch(e){ console.warn('load failed', e); return false; }
+}
+
+/* =========================
+   UI wiring
+   ========================= */
+document.getElementById('openSettings').addEventListener('click', ()=> document.getElementById('settingsPanel').style.display='block');
+document.getElementById('settingsToggle').addEventListener('click', ()=> { const p=document.getElementById('settingsPanel'); p.style.display = p.style.display==='block' ? 'none' : 'block'; });
+document.getElementById('openJoystickSettings').addEventListener('click', ()=> { document.getElementById('settingsPanel').style.display='none'; document.getElementById('joystickPanel').style.display='block'; });
+document.getElementById('backFromJoystick').addEventListener('click', ()=> { document.getElementById('joystickPanel').style.display='none'; document.getElementById('settingsPanel').style.display='block'; });
+document.getElementById('saveSettings').addEventListener('click', ()=>{
+  world.w = parseInt(document.getElementById('mapSlider').value); world.h = world.w;
+  renderRadius = parseInt(document.getElementById('radiusSlider').value);
+  showMinimap = document.getElementById('minimapToggle').checked;
+  showLogs = document.getElementById('logsToggle').checked;
+  showRoleIndicators = document.getElementById('roleToggle').checked;
+  joystickMode = document.getElementById('joystickMode').value || joystickMode;
+  minimapDraggable = document.getElementById('minimapDraggable').checked;
+  hideSandboxUI = document.getElementById('hideSandboxUI').checked;
+  // joystick panel checkbox sync
+  document.getElementById('joystickVisibleInSandbox').checked = !hideSandboxUI;
+  popup('Settings saved');
+  document.getElementById('settingsPanel').style.display='none';
+});
+document.getElementById('closeSettings').addEventListener('click', ()=> document.getElementById('settingsPanel').style.display='none');
+document.getElementById('modeNormal').addEventListener('click', ()=> selectMode('normal'));
+document.getElementById('modeSandbox').addEventListener('click', ()=> selectMode('sandbox'));
+document.getElementById('modeEndless').addEventListener('click', ()=> selectMode('endless'));
+document.getElementById('startBtn').addEventListener('click', ()=> startMode(window._selectedMode || 'normal'));
+document.getElementById('continueSave').addEventListener('click', ()=> { if(loadPersistent()){ document.getElementById('menuScreen').style.display='none'; document.getElementById('sandboxControls').style.display = (mode==='sandbox')?'flex':'none'; document.getElementById('settingsToggle').style.display='block'; document.getElementById('backToMenuTop').style.display = (mode!=='sandbox')?'block':'none'; popup('Continue saved'); } else popup('No save found',1200); });
+
+document.getElementById('spawnNeutralBtn').addEventListener('click', ()=> { const ref = player || {pos:{x:world.w/2,y:world.h/2}}; spawnNeutralCluster(clamp(ref.pos.x+rand(-120,120),40,world.w-40), clamp(ref.pos.y+rand(-120,120),40,world.h-40), Math.floor(rand(3,7)), 28); });
+document.getElementById('spawnEnemyBtn').addEventListener('click', ()=> placeEnemyTeamFar(enemyTeams[Math.floor(Math.random()*enemyTeams.length)].id));
+document.getElementById('spawnWizardBtn').addEventListener('click', ()=> { const ref = player || {pos:{x:world.w/2,y:world.h/2}}; spawnNeutralRoleAt(clamp(ref.pos.x+rand(-80,80),40,world.w-40), clamp(ref.pos.y+rand(-80,80),40,world.h-40),'wizard'); popup('Neutral wizard spawned'); });
+document.getElementById('spawnGiantBtn').addEventListener('click', ()=> { const ref = player || {pos:{x:world.w/2,y:world.h/2}}; spawnNeutralRoleAt(clamp(ref.pos.x+rand(-80,80),40,world.w-40), clamp(ref.pos.y+rand(-80,80),40,world.h-40),'giant'); popup('Neutral giant spawned'); });
+document.getElementById('spawnPlayerBtn').addEventListener('click', ()=> { if(player){ units = units.filter(u=>u.team!==1); player=null; popup('Player removed'); } else { player = new Unit(world.w/2, world.h/2, {team:1,color:'#4ea8ff',leader:true,role:'swordsman'}); units.push(player); popup('Player spawned'); } });
+document.getElementById('destroyEnemiesBtn').addEventListener('click', ()=> {
+  const enemyIds = enemyTeams.map(t=>t.id);
+  units = units.filter(u=> !enemyIds.includes(u.team) );
+  // also remove followers whose followTarget was enemy
+  units = units.filter(u=> !(u.followTarget && enemyIds.includes(u.followTarget.team)) );
+  savePersistent(); popup('Enemies destroyed');
+});
+document.getElementById('backToMenuBtn').addEventListener('click', resetToMenu);
+document.getElementById('backToMenuTop').addEventListener('click', resetToMenu);
+
+/* =========================
+   Camera & draw
+   ========================= */
+let camera={x:world.w/2,y:world.h/2,zoom:1.0};
+function updateCamera(dt){
+  const troopCount = player ? units.filter(u=>u.team===1).length : 0;
+  const targetZoom = clamp(1 - (troopCount-1)*0.015, 0.75, 1.12);
+  camera.zoom += (targetZoom - camera.zoom) * 0.06;
+  if(player){ camera.x += (player.pos.x - camera.x) * 0.12; camera.y += (player.pos.y - camera.y) * 0.12; } else { camera.x += (world.w/2 - camera.x) * 0.01; camera.y += (world.h/2 - camera.y) * 0.01; }
+}
+
+function draw(){
+  ctx.setTransform(1,0,0,1,0,0); ctx.clearRect(0,0,LOGW,LOGH); ctx.fillStyle='#141416'; ctx.fillRect(0,0,LOGW,LOGH);
+  ctx.save(); ctx.translate(LOGW/2, LOGH/2); ctx.scale(camera.zoom, camera.zoom); ctx.translate(-camera.x, -camera.y);
+  ctx.strokeStyle='rgba(255,255,255,0.02)'; const g=50;
+  const startX = Math.floor((camera.x - LOGW/2/camera.zoom)/g)*g;
+  for(let x=startX; x < camera.x + LOGW/2/camera.zoom + g; x += g){ ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x, world.h); ctx.stroke(); }
+  for(let y=Math.floor((camera.y - LOGH/2/camera.zoom)/g)*g; y < camera.y + LOGH/2/camera.zoom + g; y += g){ ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(world.w,y); ctx.stroke(); }
+
+  const ref = player || {pos:{x:world.w/2,y:world.h/2}}; const vis = renderRadius * 1.25;
+  units.forEach(u=>{ if(dist(u.pos, ref.pos) <= vis*1.2) u.draw(ctx); });
+  particles.forEach(p=>{ if(dist(p, ref.pos) <= vis*1.2) p.draw(ctx); });
+  floats.forEach(f=>{ if(dist(f, ref.pos) <= vis*1.2) f.draw(ctx); });
+
+  projectiles.forEach(pr=>{ ctx.beginPath(); ctx.fillStyle = '#ff9a66'; ctx.arc(pr.x, pr.y, 6, 0, Math.PI*2); ctx.fill(); });
+
+  ctx.restore();
+  DISPLAY_CTX.setTransform(1,0,0,1,0,0); DISPLAY_CTX.clearRect(0,0,DISPLAY.width,DISPLAY.height); DISPLAY_CTX.drawImage(buf,0,0,DISPLAY.width,DISPLAY.height);
+
+  if(showMinimap){
+    miniCtx.clearRect(0,0,mini.width,mini.height);
+    miniCtx.fillStyle='rgba(0,0,0,0.6)'; miniCtx.fillRect(0,0,mini.width,mini.height);
+    const s = mini.width / world.w;
+    units.forEach(u=>{ miniCtx.fillStyle = (u.team===1)?'blue':(u.team===3?'gray':u.color || 'red'); miniCtx.fillRect(u.pos.x*s, u.pos.y*s, u.isLeader?3:2, u.isLeader?3:2); });
+    miniCtx.strokeStyle = '#fff';
+    miniCtx.strokeRect((camera.x - LOGW/2/camera.zoom)*s, (camera.y - LOGH/2/camera.zoom)*s, LOGW/camera.zoom*s, LOGH/camera.zoom*s);
+  } else miniCtx.clearRect(0,0,mini.width,mini.height);
+}
+
+/* =========================
+   Projectiles update
+   ========================= */
+function updateProjectiles(dt){
+  const copy = projectiles.slice();
+  for(const p of copy){
+    p.life -= dt; p.x += p.vx * dt; p.y += p.vy * dt;
+    const hitTarget = units.find(u=> u.team !== p.owner.team && u.team !== 3 && Math.hypot(u.pos.x - p.x, u.pos.y - p.y) < Math.max(6, p.aoe*0.12));
+    if(hitTarget || p.life <= 0){
+      units.forEach(u=>{ if(u.team !== p.owner.team && u.team !== 3 && Math.hypot(u.pos.x - p.x, u.pos.y - p.y) <= p.aoe) u.takeDamage(p.dmg, p.owner); });
+      for(let i=0;i<12;i++) particles.push(new Particle(p.x + rand(-8,8), p.y + rand(-8,8), '#ff9a66', 2, 0.6));
+      floats.push(new FloatText(p.x, p.y-6, `-${p.dmg} AOE`, '#ffb86b'));
+      projectiles.splice(projectiles.indexOf(p),1);
+    }
+  }
+}
+
+/* =========================
+   Abilities: Dash / Spread / Clump
+   - change: pointerdown used for responsiveness and simultaneous input
+   - clump: assign offsets around leader (towards leader)
+   ========================= */
+const AB = { dash:{cd:3.0,last:-999,ready(){return timeNow-this.last>=this.cd;} }, spread:{cd:5.0,last:-999,ready(){return timeNow-this.last>=this.cd;} }, clump:{cd:5.0,last:-999,ready(){return timeNow-this.last>=this.cd;} } };
+
+function updateAbilityUI(){
+  const dashCd = document.getElementById('dashCd'), spreadCd = document.getElementById('spreadCd'), clumpCd = document.getElementById('clumpCd');
+  dashCd.innerText = AB.dash.ready()? '(ready)' : '(' + Math.ceil(AB.dash.cd - (timeNow - AB.dash.last)) + 's)';
+  spreadCd.innerText = AB.spread.ready()? '(ready)' : '(' + Math.ceil(AB.spread.cd - (timeNow - AB.spread.last)) + 's)';
+  clumpCd.innerText = AB.clump.ready()? '(ready)' : '(' + Math.ceil(AB.clump.cd - (timeNow - AB.clump.last)) + 's)';
+}
+
+function doDash(){
+  if(!player) return;
+  if(!AB.dash.ready()) return;
+  AB.dash.last = timeNow;
+  let dx=0,dy=0;
+  if(keys['w']||keys['arrowup']) dy -= 1;
+  if(keys['s']||keys['arrowdown']) dy += 1;
+  if(keys['a']||keys['arrowleft']) dx -= 1;
+  if(keys['d']||keys['arrowright']) dx += 1;
+  if(dx===0 && dy===0){ dx = joy.x; dy = joy.y; }
+  const m = Math.hypot(dx,dy) || 1;
+  const distDash = 160;
+  player.pos.x = clamp(player.pos.x + (dx/m)*distDash, 20, world.w-20);
+  player.pos.y = clamp(player.pos.y + (dy/m)*distDash, 20, world.h-20);
+  for(let i=0;i<14;i++) particles.push(new Particle(player.pos.x + rand(-12,12), player.pos.y + rand(-12,12), '#9ae6ff', 2.4, 0.6));
+}
+function doSpread(){
+  if(!player) return;
+  if(!AB.spread.ready()) return;
+  AB.spread.last = timeNow;
+  const followers = units.filter(u=>u.team===1 && u.recruited && u.followTarget && u.followTarget === player);
+  const n = followers.length;
+  followers.forEach((u,i)=>{
+    const ang = (i/n) * Math.PI * 2;
+    u.followOffset.x = Math.cos(ang) * 120;
+    u.followOffset.y = Math.sin(ang) * 120;
+  });
+  popup('Spread executed');
+}
+function doClump(){
+  if(!player) return;
+  if(!AB.clump.ready()) return;
+  AB.clump.last = timeNow;
+  const followers = units.filter(u=>u.team===1 && u.recruited && u.followTarget && u.followTarget === player);
+  const n = followers.length;
+  // assign tight formation around leader (positions around circle radius 28)
+  followers.forEach((u,i)=>{
+    const ang = (i/n) * Math.PI * 2;
+    u.followOffset.x = Math.cos(ang) * 28;
+    u.followOffset.y = Math.sin(ang) * 28;
+  });
+  popup('Clump executed');
+}
+
+/* pointerdown handlers for abilities to support multi-input */
+document.getElementById('dashBtn').addEventListener('pointerdown', e=>{ e.preventDefault(); doDash(); });
+document.getElementById('spreadBtn').addEventListener('pointerdown', e=>{ e.preventDefault(); doSpread(); });
+document.getElementById('clumpBtn').addEventListener('pointerdown', e=>{ e.preventDefault(); doClump(); });
+
+/* =========================
+   Main update & loop
+   ========================= */
+function updateAll(dt){
+  dtGlobal = dt; timeNow += dt;
+  if(mode === 'sandbox') sandboxSpawner(dt);
+  if(mode === 'normal') normalSpawner(dt);
+  if(mode === 'endless') endlessSpawner(dt);
+
+  updateSleepingState();
+
+  if(player){
+    let mvx=0,mvy=0;
+    if(keys['w']||keys['arrowup']) mvy -=1;
+    if(keys['s']||keys['arrowdown']) mvy +=1;
+    if(keys['a']||keys['arrowleft']) mvx -=1;
+    if(keys['d']||keys['arrowright']) mvx +=1;
+
+    let jx = joy.x, jy = joy.y;
+    if(joystickMode === '8dir'){
+      if(Math.hypot(jx,jy) > 0.2){ const ang = Math.atan2(jy,jx); const oct = Math.round(ang / (Math.PI/4)) * (Math.PI/4); jx = Math.cos(oct); jy = Math.sin(oct); } else { jx = 0; jy = 0; }
+    } else if(joystickMode === '4dir'){
+      if(Math.hypot(jx,jy) > 0.2){ if(Math.abs(jx) > Math.abs(jy)){ jx = Math.sign(jx); jy = 0; } else { jx = 0; jy = Math.sign(jy); } } else { jx = 0; jy = 0; }
+    }
+
+    if(mvx !== 0 || mvy !== 0){
+      const m = Math.hypot(mvx,mvy) || 1; player.vel.x += (mvx/m) * player.acc; player.vel.y += (mvy/m) * player.acc;
+    } else { player.vel.x += jx * 0.28; player.vel.y += jy * 0.28; }
+
+    const vmax = 4.2; const vmag = Math.hypot(player.vel.x, player.vel.y);
+    if(vmag > vmax){ player.vel.x = player.vel.x/vmag*vmax; player.vel.y = player.vel.y/vmag*vmax; }
+    player.applyPhysics(dt);
+  }
+
+  for(let i=0;i<units.length;i++){ const u=units[i]; if(!u.sleeping || (u.recruited && u.followTarget)) u.update(dt, units); }
+
+  handleRecruitment();
+  playerAutoAttack(dt);
+  handleRespawn(dt);
+  checkDeaths();
+
+  particles = particles.filter(p=>{ p.update(dt); return p.age < p.l; });
+  floats = floats.filter(f=>{ f.update(dt); return f.age < f.life; });
+
+  updateProjectiles(dt);
+
+  updateCamera(dt);
+  draw();
+
+  const minutes = Math.floor(timeNow/60), seconds = Math.floor(timeNow%60).toString().padStart(2,'0');
+  hudEl.innerText = `Mode: ${mode||'—'} | Wave: ${waveNumber||0} | Timer: ${minutes}:${seconds} | Kills: ${killCount} | Troops: ${player? units.filter(u=>u.team===1).length:0} | Units: ${units.length}`;
+  if(showLogs) console.debug('Units', units.length, 'Particles', particles.length, 'Proj', projectiles.length);
+
+  updateAbilityUI();
+  const abil = document.getElementById('abilities');
+  if(player && mode !== null){ abil.style.display = 'flex'; } else { abil.style.display = 'none'; }
+  if(mode === 'sandbox' && hideSandboxUI){ joyEl.style.display='none'; abil.style.display='none'; } else { joyEl.style.display='flex'; if(player) abil.style.display='flex'; }
+}
+function mainLoop(ts){ const dt = Math.min(0.06, (ts - lastFrame)/1000); lastFrame = ts; updateAll(dt); requestAnimationFrame(mainLoop); }
+requestAnimationFrame(mainLoop);
+
+/* =========================
+   Mode controls / init / reset
+   ========================= */
+function selectMode(m){ document.getElementById('modeNormal').style.border=''; document.getElementById('modeSandbox').style.border=''; document.getElementById('modeEndless').style.border=''; document.getElementById('mode'+capitalize(m)).style.border='1px solid var(--accent)'; window._selectedMode = m; }
+function capitalize(s){ return s.charAt(0).toUpperCase() + s.slice(1); }
+function startMode(m){
+  mode = m; document.getElementById('menuScreen').style.display='none'; document.getElementById('sandboxControls').style.display = (mode==='sandbox') ? 'flex' : 'none';
+  document.getElementById('settingsToggle').style.display='block'; document.getElementById('backToMenuTop').style.display = (mode==='sandbox') ? 'none' : 'block';
+  if(mode==='normal' || mode==='endless'){
+    if(!player){ player = new Unit(world.w/2, world.h/2, {team:1,color:'#4ea8ff',leader:true,role:'swordsman'}); units.push(player); }
+    initWorldClusters();
+    enemyTeams.forEach(t=>{ placeEnemyTeamFar(t.id); ensureEnemyLeader(t.id); });
+    if(mode === 'endless'){ endlessWaveTimer = 2; waveNumber = waveNumber || 0; }
+  } else { units = []; particles=[]; floats=[]; projectiles=[]; player=null; }
+  popup(`${mode.toUpperCase()} started`);
+}
+function resetToMenu(){ units=[]; particles=[]; floats=[]; projectiles=[]; player=null; mode=null; document.getElementById('menuScreen').style.display='flex'; document.getElementById('sandboxControls').style.display='none'; document.getElementById('settingsToggle').style.display='none'; document.getElementById('backToMenuTop').style.display='none'; }
+
+/* =========================
+   Seed demo & expose
+   ========================= */
+function seedDemo(){ units=[]; for(let i=0;i<10;i++) spawnNeutralCluster(rand(200,world.w-200), rand(200,world.h-200), Math.floor(rand(4,8)), 30); enemyTeams.forEach(t=> placeEnemyTeamFar(t.id)); }
+seedDemo();
+window.RA = { units, spawnNeutralCluster, placeEnemyTeamFar, savePersistent, loadPersistent, resetToMenu };
+
+/* =========================
+   Minimap drag
+   ========================= */
+let draggingMini=false, miniOffset={x:0,y:0};
+miniWrap.addEventListener('pointerdown', (e)=>{ if(!minimapDraggable) return; draggingMini=true; miniWrap.setPointerCapture && miniWrap.setPointerCapture(e.pointerId); miniOffset.x = e.clientX - miniWrap.getBoundingClientRect().left; miniOffset.y = e.clientY - miniWrap.getBoundingClientRect().top; });
+window.addEventListener('pointermove', (e)=>{ if(!draggingMini) return; const left = clamp(e.clientX - miniOffset.x, 6, window.innerWidth - miniWrap.offsetWidth - 6); const top = clamp(e.clientY - miniOffset.y, 64, window.innerHeight - miniWrap.offsetHeight - 6); miniWrap.style.left = left + 'px'; miniWrap.style.top = top + 'px'; miniWrap.style.position = 'fixed'; });
+window.addEventListener('pointerup', ()=>{ draggingMini=false; });
+</script>
+</body>
+</html>
